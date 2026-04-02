@@ -36,8 +36,19 @@ struct NetcallService {
         self.netcall = netcall
     }
     
+    enum Request {
+        case getList
+        
+        var requestInfo: NetCallRequestInfo {
+            switch self {
+            case .getList:
+                .get(url: .fullURL("https://api.github.com/users/mralexgray/repos"))
+            }
+        }
+    }
+
     func fetch() async throws -> String {
-        let requestInfo = NetCallRequestInfo.get(urlString: "")
+        let requestInfo = Request.getList.requestInfo
         return try await netcall.fetchRemoteData(requestInfo: requestInfo)
     }
 }
