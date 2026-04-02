@@ -12,7 +12,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1F4486DE7195109A697ED1A0 /* NetcallApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NetcallApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1F4486DE7195109A697ED1A0 /* NetcallApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NetcallApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C12E01AF6FDBCF167B1E2E9 /* NetcallApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetcallApp.swift; sourceTree = "<group>"; };
 		A1B2C72376809382707C245E /* Netcall */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Netcall; path = ../..; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -92,8 +92,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 3DB429E0444C8777A91585E5 /* Build configuration list for PBXProject "NetcallApp" */;
 			developmentRegion = en;
@@ -197,6 +195,9 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.Bonafons.Netcall;
 				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -215,6 +216,9 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.Bonafons.Netcall;
 				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

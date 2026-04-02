@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -15,11 +15,21 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Netcall"
+            name: "Netcall",
+            swiftSettings: [
+                .enableExperimentalFeature("ApproachableConcurrency"),
+                .defaultIsolation(MainActor.self),
+                .swiftLanguageMode(.v6)
+            ]
         ),
         .testTarget(
             name: "NetcallTests",
-            dependencies: ["Netcall"]
+            dependencies: ["Netcall"],
+            swiftSettings: [
+                .enableExperimentalFeature("ApproachableConcurrency"),
+                .defaultIsolation(MainActor.self),
+                .swiftLanguageMode(.v6)
+            ]
         ),
     ]
 )
