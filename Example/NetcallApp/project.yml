@@ -1,25 +1,22 @@
 name: NetcallApp
-
 options:
   bundleIdPrefix: com.example
-
 targets:
   NetcallApp:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
-
     settings:
       GENERATE_INFOPLIST_FILE: YES
-      PRODUCT_BUNDLE_IDENTIFIER: com.Bonafons.Netcall
-      SWIFT_VERSION: "6.2"
-
+      PRODUCT_BUNDLE_IDENTIFIER: com.yannbonafons.Netcall
+      SWIFT_VERSION: "6.3"
+      SWIFT_STRICT_CONCURRENCY: complete
+      SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+      SWIFT_APPROACHABLE_CONCURRENCY: YES
     sources:
       - Sources
-
     dependencies:
       - package: Netcall
-
 packages:
   Netcall:
-    path: ../../
+    path: ../../../Netcall

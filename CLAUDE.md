@@ -16,9 +16,13 @@ Example/NetcallApp/         # Demo app (Xcode project via project.yml)
 ## Stack
 
 - Swift 6, strict concurrency (`actor`, `Sendable`)
-- SPM (swift-tools-version: 6.0)
+- SPM (swift-tools-version: 6.2)
 - Minimum deployment: iOS 17
 - Testing framework: Swift Testing (`import Testing`)
+- Approachable concurrency: YES
+- Default actor isolation: MainActor
+- Strict concurrency checking: Complete
+- SwiftLint via SPM build tool plugin
 
 ## Architecture
 

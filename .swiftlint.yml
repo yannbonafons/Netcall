@@ -1,0 +1,87 @@
+# https://realm.github.io/SwiftLint/rule-directory.html
+# rule identifiers to exclude from running
+disabled_rules:
+- large_tuple
+- todo
+- inclusive_language
+- function_parameter_count
+- trailing_whitespace
+- closure_parameter_position
+
+# optional rules added
+opt_in_rules:
+  - closure_body_length
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - comma_inheritance
+  - conditional_returns_on_newline
+  - implicit_return
+  - convenience_type
+  - empty_collection_literal
+  - empty_count
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - identical_operands
+  - let_var_whitespace
+  - literal_expression_end_indentation
+  - operator_usage_whitespace
+  - prefer_zero_over_explicit_init
+  - private_swiftui_state
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - shorthand_optional_binding
+  - sorted_first_last
+  - toggle_bool
+  - vertical_parameter_alignment_on_call
+  - yoda_condition
+  - overridden_super_call
+  - prohibited_super_call
+
+# options
+implicit_return:
+    included: [closure, getter, initializer, subscript]
+
+function_body_length:
+  error: 100
+
+file_length:
+  error: 3000
+
+type_name:
+  max_length: # warning and error
+    warning: 45
+
+force_cast:
+  severity: warning
+
+line_length:
+  warning: 165
+  ignores_function_declarations: true
+  ignores_comments: true
+  ignores_interpolated_strings: true
+  ignores_urls: true
+
+vertical_whitespace:
+  max_empty_lines: 1
+
+nesting:
+  type_level:
+    warning: 3
+
+identifier_name:
+  min_length: 
+    warning: 2
+
+cyclomatic_complexity:
+  warning: 25
+
+type_body_length:
+  warning: 300
+
+excluded:
+- Pods
+- Carthage
+- Templates

@@ -1,5 +1,4 @@
 // swift-tools-version: 6.2
-
 import PackageDescription
 
 let package = Package(
@@ -13,6 +12,9 @@ let package = Package(
             targets: ["Netcall"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/realm/SwiftLint", from: "0.57.0"),
+    ],
     targets: [
         .target(
             name: "Netcall",
@@ -20,6 +22,9 @@ let package = Package(
                 .enableExperimentalFeature("ApproachableConcurrency"),
                 .defaultIsolation(MainActor.self),
                 .swiftLanguageMode(.v6)
+            ],
+            plugins: [
+                .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")
             ]
         ),
         .testTarget(
@@ -29,6 +34,9 @@ let package = Package(
                 .enableExperimentalFeature("ApproachableConcurrency"),
                 .defaultIsolation(MainActor.self),
                 .swiftLanguageMode(.v6)
+            ],
+            plugins: [
+                .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")
             ]
         ),
     ]
