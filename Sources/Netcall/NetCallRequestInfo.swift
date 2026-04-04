@@ -26,10 +26,33 @@ public enum NetCallRequestInfo: Sendable {
     }
 
     public struct CallParam: Sendable {
-        public let timeoutInterval: TimeInterval?
+        public struct RetryPolicy: Sendable {
+            public let maxRetry: Int
+            public let retryDelay: TimeInterval
+            public let backoffMultiplier: Double
+            public let retryOnUnauthorized: Bool
 
-        public init(timeoutInterval: TimeInterval? = nil) {
+            public init(maxRetry: Int,
+                        retryDelay: TimeInterval = 0.5,
+                        backoffMultiplier: Double = 1.5,
+                        retryOnUnauthorized: Bool = false) {
+                self.maxRetry = max(0, maxRetry)
+                self.retryDelay = max(0, retryDelay)
+                self.backoffMultiplier = max(1, backoffMultiplier)
+                self.retryOnUnauthorized = retryOnUnauthorized
+            }
+        }
+
+        public let timeoutInterval: TimeInterval?
+        public let retryPolicy: RetryPolicy?
+        public let isRefreshCall: Bool
+
+        public init(timeoutInterval: TimeInterval? = nil,
+                    retryPolicy: RetryPolicy? = nil,
+                    isRefreshCall: Bool = false) {
             self.timeoutInterval = timeoutInterval
+            self.retryPolicy = retryPolicy
+            self.isRefreshCall = isRefreshCall
         }
 
         public static let `default` = CallParam()
