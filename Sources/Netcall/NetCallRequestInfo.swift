@@ -8,12 +8,12 @@
 import Foundation
 
 public enum NetCallRequestInfo: Sendable {
-    public enum URLTarget: Sendable {
+    nonisolated public enum URLTarget: Sendable {
         case pathComponent(String)
         case fullURL(String)
     }
 
-    public struct HeaderParam: Sendable {
+    nonisolated public struct HeaderParam: Sendable {
         public let headers: [String: String]
         public let useSharedHeaders: Bool
 
@@ -25,8 +25,8 @@ public enum NetCallRequestInfo: Sendable {
         public static let `default` = HeaderParam()
     }
 
-    public struct CallParam: Sendable {
-        public struct RetryPolicy: Sendable {
+    nonisolated public struct CallParam: Sendable {
+        nonisolated public struct RetryPolicy: Sendable {
             public let maxRetry: Int
             public let retryDelay: TimeInterval
             public let backoffMultiplier: Double
@@ -58,7 +58,7 @@ public enum NetCallRequestInfo: Sendable {
         public static let `default` = CallParam()
     }
 
-    public enum Body: Sendable {
+    nonisolated public enum Body: Sendable {
         case json(Data)
         case raw(Data, contentType: String?)
 

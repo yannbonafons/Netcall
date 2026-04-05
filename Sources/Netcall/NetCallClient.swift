@@ -1,29 +1,8 @@
 import Foundation
 
-public typealias NetCallUnauthorizedRefreshHook = @Sendable () async throws -> Void
-
-public protocol NetCallClientProtocol: Sendable {
-    /// Fetch
-    func fetchRemoteData<T: Codable & Sendable>(requestInfo: NetCallRequestInfo) async throws -> T
-    
-    /// Header
-    func updateSharedHeaders(_ headers: [String: String]) async
-    func setSharedHeader(name: String, value: String?) async
-
-    /// Base URL
-    func updateBaseURL(_ baseURL: String?) async
-
-    /// Request lifecycle
-    func cancelAll() async
-
-    /// Auth
-    func setUnauthorizedRefreshHook(_ hook: NetCallUnauthorizedRefreshHook?) async
-}
-
 /// NetCallClient class used to execute http requests
 public actor NetCallClient: NetCallClientProtocol {
     // MARK: - Properties
-    public static let shared = NetCallClient()
     private let session: URLSession
     private var sharedHeaders: [String: String]
     private var baseURL: URL?
@@ -32,17 +11,24 @@ public actor NetCallClient: NetCallClientProtocol {
     private var unauthorizedRefreshTask: Task<Void, Error>?
 
     // MARK: - Init
-    private init(sharedHeaders: [String: String] = [:], baseURL: URL? = nil) {
-        let conf = URLSessionConfiguration.default
-        conf.allowsExpensiveNetworkAccess = true
-        conf.httpMaximumConnectionsPerHost = 60
-        conf.timeoutIntervalForRequest = 30
-        self.session = URLSession(configuration: conf)
+    public init(session: URLSession = .shared, sharedHeaders: [String: String] = [:], baseURL: URL? = nil) {
+        self.session = session
         self.sharedHeaders = sharedHeaders
         self.baseURL = baseURL
         self.activeNetworkTasks = [:]
         self.unauthorizedRefreshHook = nil
         self.unauthorizedRefreshTask = nil
+    }
+
+    // MARK: - Shared
+    public static let shared = NetCallClient(session: makeDefaultSession())
+
+    private static func makeDefaultSession() -> URLSession {
+        let conf = URLSessionConfiguration.default
+        conf.allowsExpensiveNetworkAccess = true
+        conf.httpMaximumConnectionsPerHost = 60
+        conf.timeoutIntervalForRequest = 30
+        return URLSession(configuration: conf)
     }
 
     // MARK: - Public functions
@@ -80,93 +66,123 @@ public actor NetCallClient: NetCallClientProtocol {
         unauthorizedRefreshHook = hook
     }
 
-    /// Aims to execute http request
+    /// Executes an HTTP request and decodes the JSON response.
     /// - Parameters:
     ///   - requestInfo: NetCallRequestInfo
+    ///   - decoder: JSONDecoder to use for decoding
     /// - Returns: Decoded response payload
-    public func fetchRemoteData<T: Codable & Sendable>(requestInfo: NetCallRequestInfo) async throws -> T {
-        let data = try await performRequest(requestInfo: requestInfo)
+    public func fetchRemoteData<T: Codable & Sendable>(
+        requestInfo: NetCallRequestInfo,
+        decoder: JSONDecoder = JSONDecoder()
+    ) async throws -> T {
+        let data = try await requestData(requestInfo: requestInfo)
 
         do {
-            return try JSONDecoder().decode(T.self, from: data)
+            return try decoder.decode(T.self, from: data)
         } catch {
             throw mapDecodingError(error)
         }
     }
 
-    // MARK: - Private functions
-    private func performRequest(requestInfo: NetCallRequestInfo) async throws -> Data {
+    /// Executes an HTTP request without reading the response body.
+    public func request(requestInfo: NetCallRequestInfo) async throws {
+        _ = try await requestData(requestInfo: requestInfo)
+    }
+
+    /// Executes an HTTP request and returns the raw response data.
+    public func requestData(requestInfo: NetCallRequestInfo) async throws -> Data {
         var retryCount = 0
         var hasWaitedForUnauthorizedRefresh = false
 
         while true {
             do {
                 let (data, response) = try await executeNetworkRequest(requestInfo: requestInfo)
+                let outcome = try await handleResponse(
+                    data: data,
+                    response: response,
+                    requestInfo: requestInfo,
+                    retryCount: &retryCount,
+                    hasWaitedForUnauthorizedRefresh: &hasWaitedForUnauthorizedRefresh
+                )
 
-                switch response.statusCode {
-                case 200..<300:
-                    return data
-                case 401:
-                    if !requestInfo.callParam.isRefreshCall && !hasWaitedForUnauthorizedRefresh {
-                        hasWaitedForUnauthorizedRefresh = true
-                        try await synchronizeUnauthorizedRefresh()
-                        continue
-                    }
-
-                    let unauthorizedError = NetCallError.unauthorized
-                    guard shouldRetry(error: unauthorizedError,
-                                      retryCount: retryCount,
-                                      callParam: requestInfo.callParam) else {
-                        throw unauthorizedError
-                    }
-
-                    try await waitBeforeRetry(retryCount: retryCount, callParam: requestInfo.callParam)
-                    retryCount += 1
-                case 400..<500:
-                    let clientError = NetCallError.clientError(code: response.statusCode)
-                    guard shouldRetry(error: clientError,
-                                      retryCount: retryCount,
-                                      callParam: requestInfo.callParam) else {
-                        throw clientError
-                    }
-
-                    try await waitBeforeRetry(retryCount: retryCount, callParam: requestInfo.callParam)
-                    retryCount += 1
-                case 500..<600:
-                    let serverError = NetCallError.serverError(code: response.statusCode)
-                    guard shouldRetry(error: serverError,
-                                      retryCount: retryCount,
-                                      callParam: requestInfo.callParam) else {
-                        throw serverError
-                    }
-
-                    try await waitBeforeRetry(retryCount: retryCount, callParam: requestInfo.callParam)
-                    retryCount += 1
-                default:
-                    let unknownStatusError = NetCallError.customError(
-                        message: "Unknown status code: \(response.statusCode). Body: \(bodyDescription(from: data))"
-                    )
-                    guard shouldRetry(error: unknownStatusError,
-                                      retryCount: retryCount,
-                                      callParam: requestInfo.callParam) else {
-                        throw unknownStatusError
-                    }
-
-                    try await waitBeforeRetry(retryCount: retryCount, callParam: requestInfo.callParam)
-                    retryCount += 1
+                if case .success(let payload) = outcome {
+                    return payload
                 }
             } catch {
-                let mappedError = mapTransportError(error)
-                guard shouldRetry(error: mappedError,
-                                  retryCount: retryCount,
-                                  callParam: requestInfo.callParam) else {
-                    throw mappedError
-                }
-
-                try await waitBeforeRetry(retryCount: retryCount, callParam: requestInfo.callParam)
-                retryCount += 1
+                try await handleRequestFailure(error, retryCount: &retryCount, callParam: requestInfo.callParam)
             }
         }
+    }
+
+    // MARK: - Private functions
+    private enum RequestDataOutcome {
+        case success(Data)
+        case retry
+    }
+
+    private func handleResponse(
+        data: Data,
+        response: HTTPURLResponse,
+        requestInfo: NetCallRequestInfo,
+        retryCount: inout Int,
+        hasWaitedForUnauthorizedRefresh: inout Bool
+    ) async throws -> RequestDataOutcome {
+        switch response.statusCode {
+        case 200..<300:
+            return .success(data)
+        case 401:
+            if !requestInfo.callParam.isRefreshCall && !hasWaitedForUnauthorizedRefresh {
+                hasWaitedForUnauthorizedRefresh = true
+                try await synchronizeUnauthorizedRefresh()
+                return .retry
+            }
+
+            try await retryOrThrow(.unauthorized, retryCount: &retryCount, callParam: requestInfo.callParam)
+            return .retry
+        case 400..<500:
+            try await retryOrThrow(
+                .clientError(code: response.statusCode),
+                retryCount: &retryCount,
+                callParam: requestInfo.callParam
+            )
+            return .retry
+        case 500..<600:
+            try await retryOrThrow(
+                .serverError(code: response.statusCode),
+                retryCount: &retryCount,
+                callParam: requestInfo.callParam
+            )
+            return .retry
+        default:
+            try await retryOrThrow(
+                .customError(message: "Unknown status code: \(response.statusCode). Body: \(bodyDescription(from: data))"),
+                retryCount: &retryCount,
+                callParam: requestInfo.callParam
+            )
+            return .retry
+        }
+    }
+
+    private func handleRequestFailure(
+        _ error: Error,
+        retryCount: inout Int,
+        callParam: NetCallRequestInfo.CallParam
+    ) async throws {
+        let mappedError = mapTransportError(error)
+        try await retryOrThrow(mappedError, retryCount: &retryCount, callParam: callParam)
+    }
+
+    private func retryOrThrow(
+        _ error: NetCallError,
+        retryCount: inout Int,
+        callParam: NetCallRequestInfo.CallParam
+    ) async throws {
+        guard shouldRetry(error: error, retryCount: retryCount, callParam: callParam) else {
+            throw error
+        }
+
+        try await waitBeforeRetry(retryCount: retryCount, callParam: callParam)
+        retryCount += 1
     }
 
     private func executeNetworkRequest(requestInfo: NetCallRequestInfo) async throws -> (Data, HTTPURLResponse) {
@@ -234,7 +250,7 @@ public actor NetCallClient: NetCallClientProtocol {
         case .networkError, .serverError:
             return true
         case .unauthorized:
-            return retryPolicy.retryOnUnauthorized
+            return retryPolicy.retryOnUnauthorized && !callParam.isRefreshCall
         default:
             return false
         }
@@ -261,7 +277,9 @@ public actor NetCallClient: NetCallClientProtocol {
         let endPointUrl = try resolveURL(from: requestInfo.urlTarget)
 
         var urlComponents = URLComponents(url: endPointUrl, resolvingAgainstBaseURL: false)
-        urlComponents?.queryItems = requestInfo.queryItems
+        if !requestInfo.queryItems.isEmpty {
+            urlComponents?.queryItems = requestInfo.queryItems
+        }
 
         guard let urlForRequest = urlComponents?.url else {
             throw NetCallError.badRequest

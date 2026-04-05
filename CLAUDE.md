@@ -7,8 +7,8 @@ Lightweight Swift networking library wrapping `URLSession`.
 ```
 Sources/Netcall/
   NetCallClient.swift      # Actor-based HTTP client (singleton via .shared)
-  NetCallRequestInfo.swift  # Enum modeling GET/POST requests
-  NetCallError.swift        # Error types for HTTP responses
+  NetCallRequestInfo.swift  # Enum modeling HTTP requests (GET/POST/PUT/PATCH/DELETE)
+  NetCallError.swift        # Typed errors for HTTP responses
 Tests/NetcallTests/         # Swift Testing framework
 Example/NetcallApp/         # Demo app (Xcode project via project.yml)
 ```
@@ -27,9 +27,15 @@ Example/NetcallApp/         # Demo app (Xcode project via project.yml)
 ## Architecture
 
 - `NetCallClient` is an **actor** (thread-safe by design), accessed via `NetCallClient.shared`
-- `NetCallClientProtocol` defines the public contract
-- `NetCallRequestInfo` is an enum (`get` / `post`) carrying URL, query items, and optional body
-- `NetCallError` maps HTTP status codes to typed errors
+- `NetCallClientProtocol` defines the public contract (`fetchRemoteData`, header/baseURL management, `cancelAll`, auth hook)
+- `NetCallRequestInfo` — enum with cases: `get`, `post`, `put`, `patch`, `delete`
+  - `URLTarget` — `.pathComponent(String)` (resolved against `baseURL`) or `.fullURL(String)`
+  - `HeaderParam` — per-request headers + `useSharedHeaders` flag (default: `true`)
+  - `CallParam` — optional `timeoutInterval`, `RetryPolicy` (maxRetry, delay, backoff, retryOnUnauthorized), `isRefreshCall`
+  - `Body` — `.json(Data)` / `.raw(Data, contentType:)` + convenience `.json(_:encoder:)` for `Encodable`
+- `NetCallError` — typed errors: `badRequest`, `responseFormat`, `unauthorized`, `clientError(code:)`, `serverError(code:)`, `cancelled`, `networkError(code:)`, `decodingError(message:)`, `customError(message:error:)`
+- **401 handling** — `setUnauthorizedRefreshHook` registers a callback; on 401, concurrent requests coalesce into a single refresh task, then retry
+- **Retry** — configurable via `CallParam.RetryPolicy` with exponential backoff; retries on network/server errors (+ optionally on 401)
 
 ## Conventions
 
