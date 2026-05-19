@@ -1,6 +1,10 @@
 import Foundation
+import PrintUI
 import Testing
+import UIKit
 @testable import Netcall
+
+// swiftlint:disable force_unwrapping type_body_length file_length
 
 // MARK: - Mock URLProtocol
 
@@ -8,11 +12,16 @@ nonisolated
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: ((URLRequest) throws -> (Data, HTTPURLResponse))?
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override static func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+    
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
-        guard let handler = Self.handler else {
+        guard let handler = MockURLProtocol.handler else {
             client?.urlProtocol(self, didFailWithError: URLError(.unknown))
             return
         }
@@ -42,6 +51,23 @@ nonisolated
 private struct SnakeCaseModel: Codable, Sendable, Equatable {
     let firstName: String
     let lastName: String
+}
+
+private final class CapturingLogProvider: LogProvider, @unchecked Sendable {
+    let enabledLevels = Set(LogLevel.allCases)
+
+    private let lock = NSLock()
+    private var capturedEvents: [LogEvent] = []
+
+    var events: [LogEvent] {
+        lock.withLock { capturedEvents }
+    }
+
+    func log(_ event: LogEvent) {
+        lock.withLock {
+            capturedEvents.append(event)
+        }
+    }
 }
 
 // MARK: - Helpers
@@ -75,10 +101,37 @@ private func encode<T: Encodable>(_ value: T) throws -> Data {
     try JSONEncoder().encode(value)
 }
 
+private func makeImageData() throws -> Data {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
+    let image = renderer.image { context in
+        UIColor.systemBlue.setFill()
+        context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+    }
+
+    return try #require(image.pngData())
+}
+
+private func diskCacheURL(for imageURLString: String) -> URL {
+    FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent(String(imageURLString.hashValue))
+}
+
+private func removeDiskCache(for imageURLString: String) {
+    try? FileManager.default.removeItem(at: diskCacheURL(for: imageURLString))
+}
+
+private func waitForDiskCache(for imageURLString: String) async throws {
+    let cacheURL = diskCacheURL(for: imageURLString)
+    for _ in 0..<20 where !FileManager.default.fileExists(atPath: cacheURL.path) {
+        try await Task.sleep(nanoseconds: 50_000_000)
+    }
+    #expect(FileManager.default.fileExists(atPath: cacheURL.path))
+}
+
 // MARK: - All Tests (serialized to avoid MockURLProtocol.handler conflicts)
 
 @Suite(.serialized)
-struct NetcallTests {
+enum NetcallTests {
 
     // MARK: - Request Construction Tests
 
@@ -527,6 +580,99 @@ struct NetcallTests {
         }
     }
 
+    // MARK: - Logging Tests
+
+    @Suite("Logging")
+    struct LoggingTests {
+
+        @Test("printCall logs successful requests until logging is disabled")
+        func printCallLoggingCanBeDisabled() async throws {
+            let client = makeClient()
+            let provider = CapturingLogProvider()
+            LoggerManager.instance.setProviders(providers: [provider])
+
+            MockURLProtocol.handler = { _ in
+                mockResponse(data: try encode(TestModel(id: 1, name: "logged")))
+            }
+
+            let _: TestModel = try await client.fetchRemoteData(
+                requestInfo: .get(
+                    url: .fullURL("https://api.test.com/logged"),
+                    callParam: .init(printCall: true)
+                )
+            )
+
+            #expect(provider.events.contains { event in
+                event.level == .info &&
+                    event.message == "Request success" &&
+                    event.category.identifier == LogCategory.data.rawValue
+            })
+
+            let eventCountBeforeDisable = provider.events.count
+            NetCallClient.disableLogging()
+
+            let _: TestModel = try await client.fetchRemoteData(
+                requestInfo: .get(
+                    url: .fullURL("https://api.test.com/not-logged"),
+                    callParam: .init(printCall: true)
+                )
+            )
+
+            #expect(provider.events.count == eventCountBeforeDisable)
+        }
+    }
+
+    // MARK: - Image Tests
+
+    @Suite("Images")
+    struct ImageTests {
+
+        @Test("fetchImage returns cached image from memory without a second request")
+        func fetchImageUsesMemoryCache() async throws {
+            let client = makeClient()
+            let imageData = try makeImageData()
+            var requestCount = 0
+
+            MockURLProtocol.handler = { _ in
+                requestCount += 1
+                return mockResponse(url: "https://api.test.com/image.png", data: imageData)
+            }
+
+            let firstImage = await client.fetchImage(from: "https://api.test.com/image.png", useDisk: false)
+            let secondImage = await client.fetchImage(from: "https://api.test.com/image.png", useDisk: false)
+
+            #expect(firstImage != nil)
+            #expect(secondImage != nil)
+            #expect(requestCount == 1)
+        }
+
+        @Test("fetchImage saves to disk and a new cache manager reads it without network")
+        func fetchImageUsesDiskCache() async throws {
+            let imageURLString = "https://api.test.com/disk-image.png"
+            removeDiskCache(for: imageURLString)
+            defer { removeDiskCache(for: imageURLString) }
+
+            let client = makeClient()
+            let imageData = try makeImageData()
+            var requestCount = 0
+
+            MockURLProtocol.handler = { _ in
+                requestCount += 1
+                return mockResponse(url: imageURLString, data: imageData)
+            }
+
+            let fetchedImage = await client.fetchImage(from: imageURLString, useDisk: true)
+            try await waitForDiskCache(for: imageURLString)
+
+            #expect(fetchedImage != nil)
+            #expect(requestCount == 1)
+
+            let diskBackedCache = ImageCacheManager(countLimit: 0)
+            let cachedImage = diskBackedCache.get(forKey: imageURLString, useDisk: true)
+            #expect(cachedImage != nil)
+        }
+    }
+
     // MARK: - Cancel Tests
 
     @Suite("Cancellation")
@@ -559,3 +705,5 @@ struct NetcallTests {
         }
     }
 }
+
+// swiftlint:enable force_unwrapping type_body_length file_length

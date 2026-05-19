@@ -15,6 +15,7 @@ public enum NetCallError: Error {
     case clientError(code: Int)
     case serverError(code: Int)
     case cancelled
+    case cannotDecodeImage
     case networkError(code: URLError.Code)
     case decodingError(message: String)
     case customError(message: String, error: Error? = nil)
@@ -33,6 +34,8 @@ public enum NetCallError: Error {
             return "Server error with code: \(code)"
         case .cancelled:
             return "Request was cancelled"
+        case .cannotDecodeImage:
+            return "Data cannot be decoded into an UIImage"
         case .networkError(code: let code):
             return "Network error with code: \(code.rawValue)"
         case .decodingError(message: let message):

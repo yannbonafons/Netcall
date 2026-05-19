@@ -37,4 +37,3 @@ extension NetCallClientProtocol {
         try await fetchRemoteData(requestInfo: requestInfo, decoder: JSONDecoder())
     }
 }
-

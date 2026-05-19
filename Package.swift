@@ -14,10 +14,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/realm/SwiftLint", from: "0.57.0"),
+        .package(url: "https://github.com/yannbonafons/PrintUI", from: "1.2.0"),
     ],
     targets: [
         .target(
             name: "Netcall",
+            dependencies: ["PrintUI"],
             swiftSettings: [
                 .enableExperimentalFeature("ApproachableConcurrency"),
                 .defaultIsolation(MainActor.self),
@@ -29,7 +31,7 @@ let package = Package(
         ),
         .testTarget(
             name: "NetcallTests",
-            dependencies: ["Netcall"],
+            dependencies: ["Netcall", "PrintUI"],
             swiftSettings: [
                 .enableExperimentalFeature("ApproachableConcurrency"),
                 .defaultIsolation(MainActor.self),
