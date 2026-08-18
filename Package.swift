@@ -14,7 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/realm/SwiftLint", from: "0.57.0"),
-        .package(url: "https://github.com/yannbonafons/PrintUI", from: "1.2.0"),
+        .package(url: "https://github.com/yannbonafons/PrintUI", from: "1.2.1"),
     ],
     targets: [
         .target(
