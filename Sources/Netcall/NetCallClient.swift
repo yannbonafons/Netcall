@@ -2,8 +2,10 @@ import Foundation
 import UIKit
 import PrintUI
 
+public typealias NetCallProtocol = NetCallClientProtocol & NetCallConfigurationProtocol & NetCallImageClientProtocol
+
 /// NetCallClient class used to execute http requests
-public actor NetCallClient: NetCallClientProtocol {
+public actor NetCallClient: NetCallProtocol {
     // MARK: - Properties
     let session: URLSession
     var imageCacheManager: ImageCacheManagerProtocol
@@ -15,11 +17,11 @@ public actor NetCallClient: NetCallClientProtocol {
     var unauthorizedRefreshTask: Task<Void, Error>?
     
     // MARK: - Init
-    public init(session: URLSession = .shared,
-                imageCacheManager: ImageCacheManagerProtocol = ImageCacheManager(),
-                sharedHeaders: [String: String] = [:],
-                sharedImageHeaders: [String: String] = [:],
-                baseURL: URL? = nil) {
+    init(session: URLSession,
+         imageCacheManager: ImageCacheManagerProtocol = ImageCacheManager(),
+         sharedHeaders: [String: String] = [:],
+         sharedImageHeaders: [String: String] = [:],
+         baseURL: URL? = nil) {
         self.session = session
         self.imageCacheManager = imageCacheManager
         self.sharedHeaders = sharedHeaders
@@ -31,7 +33,7 @@ public actor NetCallClient: NetCallClientProtocol {
     }
     
     // MARK: - Shared
-    public static let shared = NetCallClient(session: makeDefaultSession())
+    public static let shared: NetCallProtocol = NetCallClient(session: makeDefaultSession())
     
     private static func makeDefaultSession() -> URLSession {
         let conf = URLSessionConfiguration.default

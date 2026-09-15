@@ -668,7 +668,7 @@ enum NetcallTests {
             #expect(requestCount == 1)
 
             let diskBackedCache = ImageCacheManager(countLimit: 0)
-            let cachedImage = diskBackedCache.get(forKey: imageURLString, useDisk: true)
+            let cachedImage = await diskBackedCache.get(forKey: imageURLString, useDisk: true)
             #expect(cachedImage != nil)
         }
     }

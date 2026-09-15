@@ -8,12 +8,12 @@
 import Foundation
 import UIKit
 
-public protocol ImageCacheManagerProtocol: Sendable {
-    func get(forKey imageURLString: String, useDisk: Bool) -> UIImage?
+protocol ImageCacheManagerProtocol: Sendable {
+    func get(forKey imageURLString: String, useDisk: Bool) async -> UIImage?
     func save(_ image: UIImage, for imageURLString: String, saveToDisk: Bool)
 }
 
-final public class ImageCacheManager: ImageCacheManagerProtocol, @unchecked Sendable {
+final class ImageCacheManager: ImageCacheManagerProtocol {
     static public let defaultCountLimit = 100
     
     private let memoryCache = NSCache<NSString, UIImage>()
@@ -23,22 +23,22 @@ final public class ImageCacheManager: ImageCacheManagerProtocol, @unchecked Send
         memoryCache.countLimit = countLimit
     }
 
-    public func get(forKey imageURLString: String, useDisk: Bool) -> UIImage? {
+    func get(forKey imageURLString: String, useDisk: Bool) async -> UIImage? {
         if let cached = memoryCache.object(forKey: imageURLString as NSString) {
             return cached
         }
         
-        if useDisk {
-            let diskPath = cachePath(for: imageURLString)
-            if let data = try? Data(contentsOf: diskPath), let image = UIImage(data: data) {
-                memoryCache.setObject(image,
-                                      forKey: imageURLString as NSString)
-                return image
-            }
+        guard useDisk else {
+            return nil
         }
-        return nil
+        
+        guard let image = await loadFromDisk(cachePath(for: imageURLString)) else {
+            return nil
+        }
+        memoryCache.setObject(image, forKey: imageURLString as NSString)
+        return image
     }
-
+    
     public func save(_ image: UIImage, for imageURLString: String, saveToDisk: Bool) {
         memoryCache.setObject(image, forKey: imageURLString as NSString)
         
@@ -56,5 +56,13 @@ final public class ImageCacheManager: ImageCacheManagerProtocol, @unchecked Send
         let folder = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let fileName = String(imageURLString.hashValue)
         return folder.appendingPathComponent(fileName)
+    }
+
+    @concurrent
+    private func loadFromDisk(_ url: URL) async -> UIImage? {
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return UIImage(data: data)
     }
 }
