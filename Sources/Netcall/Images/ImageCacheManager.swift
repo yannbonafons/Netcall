@@ -28,15 +28,15 @@ final class ImageCacheManager: ImageCacheManagerProtocol {
             return cached
         }
         
-        guard useDisk else {
+        if useDisk {
+            guard let image = await loadFromDisk(cachePath(for: imageURLString)) else {
+                return nil
+            }
+            memoryCache.setObject(image, forKey: imageURLString as NSString)
+            return image
+        } else {
             return nil
         }
-        
-        guard let image = await loadFromDisk(cachePath(for: imageURLString)) else {
-            return nil
-        }
-        memoryCache.setObject(image, forKey: imageURLString as NSString)
-        return image
     }
     
     public func save(_ image: UIImage, for imageURLString: String, saveToDisk: Bool) {
