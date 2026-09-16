@@ -26,7 +26,7 @@ Example/NetcallApp/         # Demo app (Xcode project via project.yml)
 
 ## Architecture
 
-- `NetCallClient` is an **actor** (thread-safe by design), accessed via `NetCallClient.shared`
+- `NetCallClient` is an **actor** (thread-safe by design), accessed via `NetCallClient.shared`, or instantiate your own with the public `init(session:sharedHeaders:sharedImageHeaders:baseURL:)` (use `NetCallClient.defaultNecallSession` for the session if you don't need a custom one)
 - `NetCallClientProtocol` defines the public contract (`fetchRemoteData`, header/baseURL management, `cancelAll`, auth hook)
 - `NetCallRequestInfo` — enum with cases: `get`, `post`, `put`, `patch`, `delete`
   - `URLTarget` — `.pathComponent(String)` (resolved against `baseURL`) or `.fullURL(String)`
