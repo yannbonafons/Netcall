@@ -46,6 +46,11 @@ public protocol NetCallConfigurationProtocol {
 }
 
 public protocol NetCallImageClientProtocol {
-    /// Fetch an image. The fetched image will be store in cache (and optionnaly on the disk)
+    /// Fetch an image. The fetched image will be store in cache (and optionally on the disk)
+    /// If `fetchImage` or `preloadImages`is called several times with the same `urlString`, request will be done just once
     func fetchImage(from urlString: String, useDisk: Bool) async -> UIImage?
+    
+    /// Preload an array of images and store them in cache (and optionally on the disk)
+    /// If `fetchImage` or `preloadImages`is called several times with the same `urlString`, request will be done just once
+    func preloadImages(from urlStrings: [String], useDisk: Bool) async
 }

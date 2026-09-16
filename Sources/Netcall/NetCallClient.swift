@@ -13,9 +13,10 @@ public actor NetCallClient: NetCallProtocol {
     var sharedImageHeaders: [String: String]
     var baseURL: URL?
     var activeNetworkTasks: [UUID: Task<(Data, URLResponse), Error>]
+    var activeImageFetchTasks: [String: Task<UIImage?, Never>]
     var unauthorizedRefreshHook: NetCallUnauthorizedRefreshHook?
     var unauthorizedRefreshTask: Task<Void, Error>?
-    
+
     // MARK: - Init
     init(session: URLSession,
          imageCacheManager: ImageCacheManagerProtocol = ImageCacheManager(),
@@ -28,6 +29,7 @@ public actor NetCallClient: NetCallProtocol {
         self.sharedImageHeaders = sharedImageHeaders
         self.baseURL = baseURL
         self.activeNetworkTasks = [:]
+        self.activeImageFetchTasks = [:]
         self.unauthorizedRefreshHook = nil
         self.unauthorizedRefreshTask = nil
     }
@@ -154,12 +156,37 @@ public actor NetCallClient: NetCallProtocol {
         }
     }
     
+    public func preloadImages(from urlStrings: [String], useDisk: Bool) async {
+        await withTaskGroup(of: Void.self) { group in
+            for urlString in urlStrings {
+                group.addTask {
+                    _ = await self.fetchImage(from: urlString, useDisk: useDisk)
+                }
+            }
+        }
+    }
+    
     public func fetchImage(from urlString: String, useDisk: Bool) async -> UIImage? {
         if let cached = await imageCacheManager.get(forKey: urlString,
                                                     useDisk: useDisk) {
             return cached
         }
-        
+
+        if let inFlightTask = activeImageFetchTasks[urlString] {
+            return await inFlightTask.value
+        }
+
+        let task = Task<UIImage?, Never> {
+            await self.performImageFetch(from: urlString, useDisk: useDisk)
+        }
+        activeImageFetchTasks[urlString] = task
+
+        let image = await task.value
+        activeImageFetchTasks[urlString] = nil
+        return image
+    }
+
+    private func performImageFetch(from urlString: String, useDisk: Bool) async -> UIImage? {
         do {
             let data = try await requestData(
                 requestInfo: .get(url: .fullURL(urlString),
@@ -169,7 +196,7 @@ public actor NetCallClient: NetCallProtocol {
                                   callParam: NetCallRequestInfo.CallParam(timeoutInterval: 10,
                                                                           retryPolicy: NetCallRequestInfo.CallParam.RetryPolicy.default))
             )
-            
+
             guard let fetchedImage = UIImage(data: data) else {
                 throw URLError(.cannotDecodeContentData)
             }
