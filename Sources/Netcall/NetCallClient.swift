@@ -18,11 +18,29 @@ public actor NetCallClient: NetCallProtocol {
     var unauthorizedRefreshTask: Task<Void, Error>?
 
     // MARK: - Init
+    /// Initialize a NetCallClient. By default, you can already use the shared instance. Use this init only if you need a specific configuration
+    /// - Parameters:
+    ///   - session: URLSession. You can use NetCallClient.defaultNecallSession
+    ///   - sharedHeaders: headers for API calls
+    ///   - sharedImageHeaders: headers for image fetching
+    ///   - baseURL: domain for API calls
+    public init(session: URLSession,
+                sharedHeaders: [String: String] = [:],
+                sharedImageHeaders: [String: String] = [:],
+                baseURL: URL? = nil) {
+        self.init(session: session,
+                  imageCacheManager: ImageCacheManager(),
+                  sharedHeaders: sharedHeaders,
+                  sharedImageHeaders: sharedImageHeaders,
+                  baseURL: baseURL)
+    }
+    
+    /// Purpose of this init is to inject `imageCacheManager`
     init(session: URLSession,
-         imageCacheManager: ImageCacheManagerProtocol = ImageCacheManager(),
-         sharedHeaders: [String: String] = [:],
-         sharedImageHeaders: [String: String] = [:],
-         baseURL: URL? = nil) {
+         imageCacheManager: ImageCacheManagerProtocol,
+         sharedHeaders: [String: String],
+         sharedImageHeaders: [String: String],
+         baseURL: URL?) {
         self.session = session
         self.imageCacheManager = imageCacheManager
         self.sharedHeaders = sharedHeaders
@@ -33,11 +51,12 @@ public actor NetCallClient: NetCallProtocol {
         self.unauthorizedRefreshHook = nil
         self.unauthorizedRefreshTask = nil
     }
-    
+
     // MARK: - Shared
-    public static let shared: NetCallProtocol = NetCallClient(session: makeDefaultSession())
+    public static let shared: NetCallProtocol = NetCallClient(session: defaultNecallSession)
     
-    private static func makeDefaultSession() -> URLSession {
+    /// You can use this URLSession if you need to instanciate a NetCallClient
+    public static var defaultNecallSession: URLSession {
         let conf = URLSessionConfiguration.default
         conf.allowsExpensiveNetworkAccess = true
         conf.httpMaximumConnectionsPerHost = 60

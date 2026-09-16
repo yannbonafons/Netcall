@@ -68,6 +68,18 @@ await client.setUnauthorizedRefreshHook {
 }
 ```
 
+### Custom instance
+
+Need a specific configuration instead of `.shared`? Instantiate your own client (use `NetCallClient.defaultNecallSession` if you don't need a custom `URLSession`):
+
+```swift
+let client = NetCallClient(
+    session: NetCallClient.defaultNecallSession,
+    sharedHeaders: ["Authorization": "Bearer token"],
+    baseURL: URL(string: "https://api.example.com")
+)
+```
+
 ## Example App: NetcallApp
 
 Launch the Example app located in the `Example/` folder for a working demo.
